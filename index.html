@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#101425">
-  <meta name="description" content="Um marble run animado para formar pares de amigo secreto por cores.">
+  <meta name="description" content="Corrida 3D com bandeiras dos estados brasileiros para formar pares de amigo secreto.">
   <title>Marble Match — Amigo Secreto</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,15 +20,18 @@
       <span class="brand-mark"><i></i><i></i><i></i></span>
       <span>MARBLE MATCH</span>
     </a>
-    <span class="header-pill">AMIGO SECRETO · 2026</span>
+    <div class="header-actions">
+      <span class="header-pill">AMIGO SECRETO · 2026</span>
+      <button class="sound-toggle" id="sound-toggle" type="button" aria-pressed="true" aria-label="Desativar sons">🔊 <span>SOM</span></button>
+    </div>
   </header>
 
   <main>
     <section class="hero" id="setup-view">
       <div class="hero-copy">
         <p class="eyebrow"><span></span> SORTEIO EM MOVIMENTO</p>
-        <h1>Escolha seu estado.<br><em>Deixe o acaso rolar.</em></h1>
-        <p class="lede">Cada pessoa escolhe um estado brasileiro. As bolinhas entram numa corrida 3D, formam a ordem de chegada e o jogo une a primeira à última, a segunda à penúltima — até ninguém sobrar.</p>
+        <h1>Escolha suas bolinhas.<br><em>Deixe o acaso rolar.</em></h1>
+        <p class="lede">Use bandeiras de estados brasileiros, países ou cores. As bolinhas entram numa corrida 3D, formam a ordem de chegada e o jogo une a primeira à última, a segunda à penúltima — até ninguém sobrar.</p>
 
         <div class="how-it-works">
           <div><strong>01</strong><span>Monte<br>a turma</span></div>
@@ -40,21 +43,27 @@
       <div class="setup-card">
         <div class="card-heading">
           <div>
-            <p class="card-kicker">SELEÇÃO NACIONAL</p>
-            <h2>Escolha os estados</h2>
+            <p class="card-kicker">GARAGEM DE BOLINHAS</p>
+            <h2>Estados, países ou cores</h2>
           </div>
           <span class="count-badge" id="participant-count">0 / 12</span>
         </div>
 
-        <p class="selector-help">Selecione entre 2 e 12 estados, sempre em quantidade par. Cada estado entra na pista com sua própria cor.</p>
+        <p class="selector-help">Selecione entre 2 e 12 bolinhas, sempre em quantidade par. Você pode misturar categorias.</p>
+        <div class="marble-tabs" role="tablist" aria-label="Tipo de bolinha">
+          <button class="marble-tab active" type="button" data-mode="states" role="tab" aria-selected="true">🇧🇷 Estados</button>
+          <button class="marble-tab" type="button" data-mode="countries" role="tab" aria-selected="false">🌎 Países</button>
+          <button class="marble-tab" type="button" data-mode="colors" role="tab" aria-selected="false">🎨 Cores</button>
+        </div>
+        <label class="search-field"><span>Buscar</span><input id="item-search" type="search" placeholder="Buscar estado…" autocomplete="off"></label>
         <div class="region-filters" id="region-filters" role="group" aria-label="Filtrar por região"></div>
-        <div class="state-grid" id="state-grid" role="group" aria-label="Estados brasileiros"></div>
+        <div class="state-grid" id="state-grid" role="group" aria-label="Bolinhas disponíveis"></div>
         <p class="form-message" id="form-message" role="status"></p>
 
         <div class="participant-list" id="participant-list" aria-live="polite">
           <div class="empty-state">
             <span class="empty-orbit"><i></i></span>
-            <p>Os estados selecionados aparecem aqui.</p>
+            <p>As bolinhas selecionadas aparecem aqui.</p>
           </div>
         </div>
 
@@ -78,11 +87,15 @@
       </div>
 
       <div class="track-shell">
-        <div class="track-label left">AUTÓDROMO<br>BRASIL 3D</div>
+        <div class="track-label left">WORLD MARBLE<br>CIRCUIT 3D</div>
         <div id="canvas-container" role="img" aria-label="Animação do marble run"></div>
         <div class="track-label right">CÂMERA<br>DINÂMICA</div>
+        <aside class="arrival-board" aria-label="Classificação da corrida">
+          <div class="arrival-board-title"><span>CLASSIFICAÇÃO</span><b id="arrival-progress">0/0</b></div>
+          <ol id="arrival-list" aria-live="polite"></ol>
+        </aside>
         <div class="track-overlay">
-          <span>FIRST</span><span>LAST</span>
+          <span>START GRID</span><span>FINISH LINE</span>
         </div>
       </div>
 
@@ -97,6 +110,10 @@
         <h2 id="results-title">Os pares estão formados.</h2>
         <p>Clique em cada cápsula para revelar. Segredo bom é segredo com suspense.</p>
       </div>
+      <section class="final-order" aria-labelledby="final-order-title">
+        <div><span>RESULTADO DA CORRIDA</span><h3 id="final-order-title">Ordem de chegada</h3></div>
+        <ol id="final-order-list"></ol>
+      </section>
       <div class="pair-grid" id="pair-grid"></div>
       <div class="results-actions">
         <button class="ghost-button" id="reveal-button" type="button">Revelar todos</button>

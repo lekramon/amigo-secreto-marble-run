@@ -26,7 +26,10 @@ export const BRAZIL_STATES = Object.freeze([
   { code: 'SP', name: 'São Paulo', color: '#f43f5e', region: 'Sudeste' },
   { code: 'SE', name: 'Sergipe', color: '#eab308', region: 'Nordeste' },
   { code: 'TO', name: 'Tocantins', color: '#60a5fa', region: 'Norte' },
-]);
+].map((state) => Object.freeze({
+  ...state,
+  flag: `./assets/flags/${state.code.toLowerCase()}.svg`,
+})));
 
 export function findState(code) {
   return BRAZIL_STATES.find((state) => state.code === code);

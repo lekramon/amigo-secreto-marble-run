@@ -61,10 +61,19 @@ export function validateParticipants(participants) {
     return { valid: false, message: 'Use nomes diferentes para cada participante.' };
   }
 
-  const colors = participants.map(({ color }) => color.toLocaleLowerCase());
-  if (new Set(colors).size !== colors.length) {
-    return { valid: false, message: 'Cada pessoa precisa escolher uma cor diferente.' };
+  const ids = participants.map(({ id }) => id);
+  if (new Set(ids).size !== ids.length) {
+    return { valid: false, message: 'Cada bolinha precisa ser diferente.' };
   }
 
   return { valid: true, message: '' };
+}
+
+export function appendArrival(arrivals, participant) {
+  if (arrivals.some(({ id }) => id === participant.id)) return arrivals;
+  return [...arrivals, participant];
+}
+
+export function orderFinishers(participants) {
+  return [...participants].sort((first, second) => first.finishIndex - second.finishIndex);
 }
