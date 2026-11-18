@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101425">
+  <meta name="description" content="Um marble run animado para formar pares de amigo secreto por cores.">
+  <title>Marble Match — Amigo Secreto</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.3/p5.min.js" defer></script>
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="site-header">
+    <a class="brand" href="#" aria-label="Marble Match — início">
+      <span class="brand-mark"><i></i><i></i><i></i></span>
+      <span>MARBLE MATCH</span>
+    </a>
+    <span class="header-pill">AMIGO SECRETO · 2026</span>
+  </header>
+
+  <main>
+    <section class="hero" id="setup-view">
+      <div class="hero-copy">
+        <p class="eyebrow"><span></span> SORTEIO EM MOVIMENTO</p>
+        <h1>Escolha sua cor.<br><em>Deixe o acaso rolar.</em></h1>
+        <p class="lede">Cada pessoa entra com um nome e uma cor. As bolinhas atravessam a pista, formam uma ordem de chegada e o jogo une a primeira à última, a segunda à penúltima — até ninguém sobrar.</p>
+
+        <div class="how-it-works">
+          <div><strong>01</strong><span>Monte<br>a turma</span></div>
+          <div><strong>02</strong><span>Solte<br>as bolinhas</span></div>
+          <div><strong>03</strong><span>Revele<br>os pares</span></div>
+        </div>
+      </div>
+
+      <div class="setup-card">
+        <div class="card-heading">
+          <div>
+            <p class="card-kicker">PARTICIPANTES</p>
+            <h2>Quem vai jogar?</h2>
+          </div>
+          <span class="count-badge" id="participant-count">0 / 12</span>
+        </div>
+
+        <form id="participant-form" autocomplete="off">
+          <label for="participant-name">Nome ou apelido</label>
+          <div class="name-row">
+            <input id="participant-name" name="name" type="text" maxlength="22" placeholder="Ex.: Ana" required>
+            <button class="add-button" type="submit" aria-label="Adicionar participante">+</button>
+          </div>
+
+          <fieldset>
+            <legend>Escolha uma cor</legend>
+            <div class="color-grid" id="color-grid"></div>
+          </fieldset>
+          <p class="form-message" id="form-message" role="status"></p>
+        </form>
+
+        <div class="participant-list" id="participant-list" aria-live="polite">
+          <div class="empty-state">
+            <span class="empty-orbit"><i></i></span>
+            <p>As bolinhas aparecem aqui.</p>
+          </div>
+        </div>
+
+        <div class="setup-actions">
+          <button class="ghost-button" id="demo-button" type="button">Preencher exemplo</button>
+          <button class="start-button" id="start-button" type="button" disabled>
+            <span>INICIAR MARBLE RUN</span><b>→</b>
+          </button>
+        </div>
+        <p class="privacy-note">Tudo acontece no seu navegador. Nenhum nome é enviado para um servidor.</p>
+      </div>
+    </section>
+
+    <section class="game-view hidden" id="game-view" aria-labelledby="game-title">
+      <div class="game-topbar">
+        <div>
+          <p class="eyebrow"><span></span> PISTA LIBERADA</p>
+          <h2 id="game-title">Que comecem os jogos.</h2>
+        </div>
+        <div class="race-status"><i></i><span id="race-status">Preparando as bolinhas…</span></div>
+      </div>
+
+      <div class="track-shell">
+        <div class="track-label left">ORDEM<br>DE LARGADA</div>
+        <div id="canvas-container" role="img" aria-label="Animação do marble run"></div>
+        <div class="track-label right">ORDEM<br>DE CHEGADA</div>
+        <div class="track-overlay">
+          <span>FIRST</span><span>LAST</span>
+        </div>
+      </div>
+
+      <div class="race-actions">
+        <button class="ghost-button" id="skip-button" type="button">Pular animação</button>
+      </div>
+    </section>
+
+    <section class="results-view hidden" id="results-view" aria-labelledby="results-title">
+      <div class="results-heading">
+        <p class="eyebrow"><span></span> DESTINOS CRUZADOS</p>
+        <h2 id="results-title">Os pares estão formados.</h2>
+        <p>Clique em cada cápsula para revelar. Segredo bom é segredo com suspense.</p>
+      </div>
+      <div class="pair-grid" id="pair-grid"></div>
+      <div class="results-actions">
+        <button class="ghost-button" id="reveal-button" type="button">Revelar todos</button>
+        <button class="ghost-button" id="copy-button" type="button">Copiar resultado</button>
+        <button class="start-button compact" id="restart-button" type="button"><span>NOVO SORTEIO</span><b>↻</b></button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>MARBLE MATCH</span>
+    <p>Feito para juntar gente — e separar presente ruim de amizade boa.</p>
+  </footer>
+</body>
+</html>
