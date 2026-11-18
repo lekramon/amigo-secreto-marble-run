@@ -10,6 +10,12 @@ import { BRAZIL_STATES } from './states.js';
 import { COUNTRIES } from './countries.js';
 import { MARBLE_COLORS } from './colors.js';
 import {
+  createRaceDynamics,
+  orderLiveRace,
+  sampleRaceLateral,
+  sampleRaceProgress,
+} from './race-motion.js';
+import {
   applyTrackBoosts,
   TRACK_BOOST_ZONES,
   TRACK_FINISH_Z,
@@ -240,23 +246,30 @@ function waitForP5(maxWait = 5000) {
   });
 }
 
-function smoothstep(value) {
-  return value * value * (3 - 2 * value);
-}
-
 function ordinal(position) {
   return `${position}º`;
 }
 
 function renderArrivalBoard() {
-  elements.arrivalProgress.textContent = `${state.arrivals.length}/${state.participants.length}`;
-  elements.arrivalList.innerHTML = state.arrivals.map((participant, index) => `
+  renderStandings(state.arrivals, `${state.arrivals.length}/${state.participants.length}`);
+}
+
+function renderStandings(order, progressLabel) {
+  elements.arrivalProgress.textContent = progressLabel;
+  elements.arrivalList.innerHTML = order.map((participant, index) => `
     <li class="arrival-entry${index < 3 ? ` podium p${index + 1}` : ''}">
       <b>${ordinal(index + 1)}</b>
       <span class="arrival-flag">${visualMarkup(participant, 'mini-flag')}</span>
       <span><strong>${participant.code}</strong><small>${escapeHtml(participant.name)}</small></span>
     </li>
   `).join('');
+}
+
+function renderLiveStandings(racers) {
+  const progressLabel = state.arrivals.length
+    ? `${state.arrivals.length}/${state.participants.length}`
+    : 'AO VIVO';
+  renderStandings(orderLiveRace(racers), progressLabel);
 }
 
 function recordArrival(participant) {
@@ -281,8 +294,8 @@ function renderFinalOrder() {
 function startSketch(P5) {
   P5.disableFriendlyErrors = true;
   const container = document.querySelector('#canvas-container');
-  const finishIndex = new Map(state.order.map((participant, index) => [participant.id, index]));
   const total = state.participants.length;
+  const raceDynamics = createRaceDynamics(state.participants, state.order, state.seed);
 
   state.sketch?.remove();
 
@@ -293,20 +306,25 @@ function startSketch(P5) {
     const laneGap = Math.min(92, Math.max(52, 720 / total));
     const trackWidth = laneGap * total + 110;
     const marbleRadius = Math.min(37, Math.max(25, laneGap * 0.35));
-    const marbles = state.participants.map((participant, startIndex) => ({
-      ...participant,
-      startIndex,
-      finishIndex: finishIndex.get(participant.id),
-      duration: 10500 + finishIndex.get(participant.id) * 320,
-      phase: (startIndex + 1) * 1.731,
-      z: START_Z,
-      x: 0,
-      progress: 0,
-      arrived: false,
-      flagImage: null,
-      textureImage: null,
-      label: null,
-    }));
+    const marbles = state.participants.map((participant, startIndex) => {
+      const motion = raceDynamics.get(participant.id);
+      return {
+        ...participant,
+        startIndex,
+        finishIndex: motion.finishIndex,
+        finishLaneIndex: motion.finishLaneIndex,
+        duration: motion.duration,
+        motion,
+        phase: (startIndex + 1) * 1.731,
+        z: START_Z,
+        x: 0,
+        progress: 0,
+        arrived: false,
+        flagImage: null,
+        textureImage: null,
+        label: null,
+      };
+    });
     let startedAt;
     let completed = false;
     let rollingStarted = false;
@@ -435,6 +453,7 @@ function startSketch(P5) {
       });
       raceSign = makeRaceSign();
       startedAt = p.millis();
+      renderLiveStandings(marbles);
       globalThis.__marbleRunReady = true;
     };
 
@@ -451,10 +470,15 @@ function startSketch(P5) {
       const finishers = [];
       marbles.forEach((marble) => {
         const raw = Math.max(0, Math.min(1, raceElapsed / marble.duration));
-        marble.progress = applyTrackBoosts(smoothstep(raw));
-        const baseX = p.lerp(laneX(marble.startIndex), laneX(marble.finishIndex), marble.progress);
-        const weave = Math.sin(marble.progress * Math.PI * 8 + marble.phase) * laneGap * 0.18 * Math.sin(marble.progress * Math.PI);
-        const frame = trackFrame(marble.progress, baseX + weave);
+        marble.progress = applyTrackBoosts(sampleRaceProgress(marble.motion, raw));
+        const lateral = sampleRaceLateral(
+          marble.motion,
+          marble.progress,
+          laneX(marble.startIndex),
+          laneX(marble.finishLaneIndex),
+          laneGap,
+        );
+        const frame = trackFrame(marble.progress, lateral);
         marble.x = frame.x;
         marble.y = frame.y;
         marble.z = frame.z;
@@ -469,19 +493,36 @@ function startSketch(P5) {
         recordArrival(marble);
       });
 
-      const leaderProgress = Math.max(...marbles.map((marble) => marble.progress));
-      const cameraFrame = trackFrame(Math.min(1, leaderProgress + 0.16));
-      const targetFrame = trackFrame(Math.max(0, leaderProgress - 0.035));
+      const leaderMarble = marbles.reduce((leader, marble) => (
+        marble.progress > leader.progress ? marble : leader
+      ));
+      const leaderProgress = leaderMarble.progress;
       const tunnelPosition = Math.max(0, Math.min(1, (leaderProgress - 0.24) / 0.46));
       const tunnelBlend = Math.sin(tunnelPosition * Math.PI);
-      const cameraLift = p.lerp(520, 155, tunnelBlend);
+      const descentPosition = Math.max(0, Math.min(1, (leaderProgress - 0.035) / 0.38));
+      const descentBlend = Math.sin(descentPosition * Math.PI);
+      const descentSide = state.seed % 2 === 0 ? -1 : 1;
+      const cameraSweep = (Math.sin(leaderProgress * Math.PI * 4.6 + 0.45)
+        * trackWidth * 0.3
+        * Math.sin(leaderProgress * Math.PI)
+        + descentSide * trackWidth * 0.48 * descentBlend)
+        * (1 - tunnelBlend * 0.92);
+      const cameraFrame = trackFrame(Math.min(1, leaderProgress + 0.115), cameraSweep);
+      const openCameraLift = 500 - descentBlend * 155
+        + Math.sin(leaderProgress * Math.PI * 3.2) * 38;
+      const cameraLift = p.lerp(openCameraLift, 150, tunnelBlend);
+      const cameraY = p.lerp(
+        cameraFrame.y - cameraLift,
+        -720,
+        descentBlend * 0.78,
+      );
       p.camera(
         cameraFrame.x,
-        cameraFrame.y - cameraLift,
-        cameraFrame.z + 180,
-        targetFrame.x,
-        targetFrame.y - 18,
-        targetFrame.z,
+        cameraY,
+        cameraFrame.z + 125,
+        leaderMarble.x,
+        leaderMarble.y - 18,
+        leaderMarble.z,
         0,
         1,
         0,
@@ -494,6 +535,8 @@ function startSketch(P5) {
 
       drawCircuit(elapsed);
       marbles.slice().sort((a, b) => a.progress - b.progress).forEach(drawMarble);
+
+      if (p.frameCount % 10 === 0 && !completed) renderLiveStandings(marbles);
 
       if (p.frameCount % 12 === 0) {
         let status;

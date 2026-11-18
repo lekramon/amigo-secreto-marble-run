@@ -1,4 +1,4 @@
-export const TRACK_START_Z = -4750;
+export const TRACK_START_Z = -6750;
 export const TRACK_FINISH_Z = 450;
 export const TRACK_LENGTH = TRACK_FINISH_Z - TRACK_START_Z;
 export const TRACK_BOOST_ZONES = [
@@ -35,16 +35,16 @@ export function applyTrackBoosts(progress) {
 export function trackSurfaceY(progress) {
   const t = clamp01(progress);
 
-  if (t <= 0.1) return -190;
-  if (t <= 0.38) return mix(-190, 105, smoothstep((t - 0.1) / 0.28));
-  if (t <= 0.54) return 105 - Math.sin(((t - 0.38) / 0.16) * Math.PI) * 90;
-  if (t <= 0.7) return 105 + Math.sin(((t - 0.54) / 0.16) * Math.PI) * 55;
-  if (t <= 0.84) return 105 - Math.sin(((t - 0.7) / 0.14) * Math.PI) * 28;
-  return mix(105, 95, smoothstep((t - 0.84) / 0.16));
+  if (t <= 0.08) return -460;
+  if (t <= 0.38) return mix(-460, 130, smoothstep((t - 0.08) / 0.3));
+  if (t <= 0.54) return 130 - Math.sin(((t - 0.38) / 0.16) * Math.PI) * 130;
+  if (t <= 0.7) return 130 + Math.sin(((t - 0.54) / 0.16) * Math.PI) * 75;
+  if (t <= 0.84) return 130 - Math.sin(((t - 0.7) / 0.14) * Math.PI) * 42;
+  return mix(130, 105, smoothstep((t - 0.84) / 0.16));
 }
 
 export function trackCenterX(progress) {
   const t = clamp01(progress);
   const envelope = Math.sin(t * Math.PI) ** 1.35;
-  return Math.sin((t - 0.22) * Math.PI * 3.4) * envelope * 185;
+  return Math.sin((t - 0.2) * Math.PI * 4.2) * envelope * 265;
 }

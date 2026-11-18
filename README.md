@@ -15,11 +15,13 @@ Um marble run 3D para formar pares de amigo secreto. Cada participante escolhe u
 - busca por nome ou sigla e filtros por região brasileira
 - seleção de 2 a 12 bolinhas, sempre em quantidade par
 - bandeiras aplicadas às bolinhas 3D e aos elementos da interface
-- autódromo WebGL de 5.200 unidades com mega descida, curvas em S, subida, vale e câmera dinâmica
+- autódromo WebGL de 7.200 unidades com mega descida de 590 unidades, curvas em S, subida e vale
+- ritmo individual por bolinha, disputas intermediárias, ultrapassagens e faixas finais sorteadas
+- câmera cinematográfica que alterna altura e lateral durante a corrida
 - túnel neon, três setores de impulso, boxes, pit lane, arquibancadas, pórticos e luzes laterais
 - sons sintetizados de contagem regressiva, corrida, chegadas e bandeirada
 - controle para ativar ou silenciar o áudio
-- classificação atualizada conforme cada bolinha cruza a chegada
+- classificação ao vivo atualizada durante disputas e ultrapassagens
 - ordem final e pares escondidos em cartões individuais
 - funcionamento local no navegador, sem backend ou coleta de dados
 
@@ -37,6 +39,7 @@ Acesse `http://localhost:4173`.
 - `index.html` — interface
 - `styles.css` — design responsivo
 - `src/app.js` — seleção, áudio, classificação e corrida 3D
+- `src/race-motion.js` — velocidades, ultrapassagens e trajetórias laterais
 - `src/track.js` — extensão, curvas e perfil de elevação do percurso
 - `src/states.js` — catálogo dos estados brasileiros
 - `src/countries.js` — catálogo de países e territórios

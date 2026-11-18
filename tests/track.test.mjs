@@ -22,14 +22,14 @@ test('curva dos boosters permanece crescente e preserva a classificação', () =
   }
 });
 
-test('percurso tem mais de cinco quilômetros virtuais', () => {
-  assert.ok(TRACK_FINISH_Z - TRACK_START_Z >= 5000);
+test('percurso tem mais de sete quilômetros virtuais', () => {
+  assert.ok(TRACK_FINISH_Z - TRACK_START_Z >= 7000);
 });
 
 test('percurso começa elevado e possui uma descida acentuada', () => {
   const start = trackSurfaceY(0.05);
   const bottom = trackSurfaceY(0.38);
-  assert.ok(bottom - start >= 240, `desnível insuficiente: ${bottom - start}`);
+  assert.ok(bottom - start >= 500, `desnível insuficiente: ${bottom - start}`);
 });
 
 test('percurso alterna subida, vale e estabiliza antes da chegada', () => {
