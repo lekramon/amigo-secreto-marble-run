@@ -5,6 +5,7 @@ import {
   pairOuterIn,
   validateParticipants,
 } from '../src/pairing.js';
+import { BRAZIL_STATES, findState } from '../src/states.js';
 
 const people = [
   { id: 'a', name: 'Ana', color: '#ff5d8f' },
@@ -35,4 +36,20 @@ test('valida nomes e cores únicas', () => {
   assert.equal(validateParticipants(people).valid, true);
   assert.equal(validateParticipants([...people, { id: 'e', name: '', color: '#ffffff' }]).valid, false);
   assert.equal(validateParticipants([...people.slice(0, 3), { id: 'x', name: 'Eva', color: '#ff5d8f' }]).valid, false);
+});
+
+test('catálogo contém os 26 estados e o Distrito Federal com cores únicas', () => {
+  assert.equal(BRAZIL_STATES.length, 27);
+  assert.equal(new Set(BRAZIL_STATES.map((state) => state.code)).size, 27);
+  assert.equal(new Set(BRAZIL_STATES.map((state) => state.color)).size, 27);
+});
+
+test('localiza estado pela sigla', () => {
+  assert.deepEqual(findState('SP'), {
+    code: 'SP',
+    name: 'São Paulo',
+    color: '#f43f5e',
+    region: 'Sudeste',
+  });
+  assert.equal(findState('XX'), undefined);
 });

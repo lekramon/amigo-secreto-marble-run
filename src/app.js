@@ -1,15 +1,13 @@
 import { createSeededOrder, pairOuterIn, validateParticipants } from './pairing.js';
+import { BRAZIL_STATES } from './states.js';
 
-const COLORS = [
-  '#ff6b6b', '#ff9f43', '#feca57', '#c8f560',
-  '#4ade80', '#2dd4bf', '#5fd9f5', '#60a5fa',
-  '#8b7cf6', '#c084fc', '#f472b6', '#e9e5d6',
-];
+const DEMO_CODES = ['SP', 'RJ', 'MG', 'BA', 'PR', 'RS'];
+const REGIONS = ['Todos', 'Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
+const MAX_STATES = 12;
 
-const DEMO_NAMES = ['Ana', 'Bia', 'Caio', 'Davi', 'Elisa', 'Fred'];
 const state = {
   participants: [],
-  selectedColor: COLORS[0],
+  region: 'Todos',
   seed: null,
   order: [],
   pairs: [],
@@ -21,9 +19,8 @@ const elements = {
   setupView: document.querySelector('#setup-view'),
   gameView: document.querySelector('#game-view'),
   resultsView: document.querySelector('#results-view'),
-  form: document.querySelector('#participant-form'),
-  nameInput: document.querySelector('#participant-name'),
-  colorGrid: document.querySelector('#color-grid'),
+  stateGrid: document.querySelector('#state-grid'),
+  regionFilters: document.querySelector('#region-filters'),
   formMessage: document.querySelector('#form-message'),
   participantList: document.querySelector('#participant-list'),
   participantCount: document.querySelector('#participant-count'),
@@ -43,53 +40,67 @@ function escapeHtml(value) {
   })[character]);
 }
 
-function createId() {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-}
-
 function createSeed() {
   const values = new Uint32Array(1);
   globalThis.crypto?.getRandomValues?.(values);
   return values[0] || Date.now();
 }
 
+function participantFromState(brazilState) {
+  return {
+    id: brazilState.code,
+    code: brazilState.code,
+    name: brazilState.name,
+    color: brazilState.color,
+    region: brazilState.region,
+  };
+}
+
 function setMessage(message = '') {
   elements.formMessage.textContent = message;
 }
 
-function firstAvailableColor() {
-  const used = new Set(state.participants.map(({ color }) => color));
-  return COLORS.find((color) => !used.has(color)) ?? COLORS[0];
+function isSelected(code) {
+  return state.participants.some((participant) => participant.code === code);
 }
 
-function renderColors() {
-  const used = new Set(state.participants.map(({ color }) => color));
-  if (used.has(state.selectedColor)) state.selectedColor = firstAvailableColor();
+function renderRegionFilters() {
+  elements.regionFilters.innerHTML = REGIONS.map((region) => `
+    <button class="region-chip${state.region === region ? ' active' : ''}" type="button" data-region="${region}" aria-pressed="${state.region === region}">${region}</button>
+  `).join('');
 
-  elements.colorGrid.innerHTML = COLORS.map((color, index) => {
-    const disabled = used.has(color);
-    const selected = state.selectedColor === color && !disabled;
-    return `<button
-      class="color-button${selected ? ' selected' : ''}"
-      style="--swatch:${color}"
-      type="button"
-      data-color="${color}"
-      aria-label="Cor ${index + 1}"
-      aria-pressed="${selected}"
-      ${disabled ? 'disabled' : ''}
-    ></button>`;
-  }).join('');
-
-  elements.colorGrid.querySelectorAll('[data-color]').forEach((button) => {
+  elements.regionFilters.querySelectorAll('[data-region]').forEach((button) => {
     button.addEventListener('click', () => {
-      state.selectedColor = button.dataset.color;
-      renderColors();
+      state.region = button.dataset.region;
+      renderRegionFilters();
+      renderStateGrid();
     });
   });
 }
 
+function renderStateGrid() {
+  const visibleStates = state.region === 'Todos'
+    ? BRAZIL_STATES
+    : BRAZIL_STATES.filter((brazilState) => brazilState.region === state.region);
+
+  elements.stateGrid.innerHTML = visibleStates.map((brazilState) => {
+    const selected = isSelected(brazilState.code);
+    const disabled = !selected && state.participants.length >= MAX_STATES;
+    return `
+      <button class="state-option${selected ? ' selected' : ''}" type="button" data-state="${brazilState.code}" aria-pressed="${selected}" ${disabled ? 'disabled' : ''}>
+        <span class="state-marble" style="--color:${brazilState.color}">${brazilState.code}</span>
+        <span><strong>${brazilState.code}</strong><small>${escapeHtml(brazilState.name)}</small></span>
+        <i>${selected ? '✓' : '+'}</i>
+      </button>`;
+  }).join('');
+
+  elements.stateGrid.querySelectorAll('[data-state]').forEach((button) => {
+    button.addEventListener('click', () => toggleState(button.dataset.state));
+  });
+}
+
 function renderParticipants() {
-  elements.participantCount.textContent = `${state.participants.length} / 12`;
+  elements.participantCount.textContent = `${state.participants.length} / ${MAX_STATES}`;
   const validation = validateParticipants(state.participants);
   elements.startButton.disabled = !validation.valid;
 
@@ -97,49 +108,46 @@ function renderParticipants() {
     elements.participantList.innerHTML = `
       <div class="empty-state">
         <span class="empty-orbit"><i></i></span>
-        <p>As bolinhas aparecem aqui.</p>
+        <p>Os estados selecionados aparecem aqui.</p>
       </div>`;
   } else {
-    elements.participantList.innerHTML = state.participants.map((person, index) => `
+    elements.participantList.innerHTML = state.participants.map((participant, index) => `
       <div class="participant">
-        <span class="marble-mini" style="--color:${person.color}"></span>
-        <strong>${escapeHtml(person.name)}</strong>
-        <small>#${String(index + 1).padStart(2, '0')}</small>
-        <button class="remove-button" type="button" data-remove="${person.id}" aria-label="Remover ${escapeHtml(person.name)}">×</button>
+        <span class="marble-mini" style="--color:${participant.color}">${participant.code}</span>
+        <strong>${escapeHtml(participant.name)}</strong>
+        <small>L${String(index + 1).padStart(2, '0')}</small>
+        <button class="remove-button" type="button" data-remove="${participant.code}" aria-label="Remover ${escapeHtml(participant.name)}">×</button>
       </div>`).join('');
 
     elements.participantList.querySelectorAll('[data-remove]').forEach((button) => {
-      button.addEventListener('click', () => {
-        state.participants = state.participants.filter(({ id }) => id !== button.dataset.remove);
-        state.selectedColor = firstAvailableColor();
-        render();
-      });
+      button.addEventListener('click', () => toggleState(button.dataset.remove));
     });
   }
-
-  renderColors();
 }
 
 function render() {
+  renderRegionFilters();
+  renderStateGrid();
   renderParticipants();
 }
 
-function addParticipant(name, color = state.selectedColor) {
-  const cleanName = name.trim();
-  if (!cleanName) return setMessage('Digite um nome antes de soltar a bolinha.');
-  if (state.participants.length >= 12) return setMessage('A pista comporta até 12 participantes.');
-  if (state.participants.some((person) => person.name.toLocaleLowerCase('pt-BR') === cleanName.toLocaleLowerCase('pt-BR'))) {
-    return setMessage('Esse nome já entrou na pista.');
-  }
-  if (state.participants.some((person) => person.color === color)) {
-    return setMessage('Essa cor já tem dono. Escolha outra.');
+function toggleState(code) {
+  if (isSelected(code)) {
+    state.participants = state.participants.filter((participant) => participant.code !== code);
+    setMessage('');
+    render();
+    return;
   }
 
-  state.participants.push({ id: createId(), name: cleanName, color });
-  state.selectedColor = firstAvailableColor();
-  elements.nameInput.value = '';
-  elements.nameInput.focus();
-  setMessage('');
+  if (state.participants.length >= MAX_STATES) {
+    setMessage('A pista comporta até 12 estados por corrida.');
+    return;
+  }
+
+  const brazilState = BRAZIL_STATES.find((candidate) => candidate.code === code);
+  if (!brazilState) return;
+  state.participants.push(participantFromState(brazilState));
+  setMessage(state.participants.length % 2 ? 'Selecione mais um estado para completar o par.' : 'Pista pronta para a largada.');
   render();
 }
 
@@ -155,29 +163,39 @@ function waitForP5(maxWait = 5000) {
   });
 }
 
-function easeInOutCubic(value) {
-  return value < 0.5 ? 4 * value ** 3 : 1 - ((-2 * value + 2) ** 3) / 2;
+function smoothstep(value) {
+  return value * value * (3 - 2 * value);
 }
 
 function startSketch(P5) {
   P5.disableFriendlyErrors = true;
   const container = document.querySelector('#canvas-container');
-  const finishIndex = new Map(state.order.map((person, index) => [person.id, index]));
+  const finishIndex = new Map(state.order.map((participant, index) => [participant.id, index]));
   const total = state.participants.length;
 
-  if (state.sketch) state.sketch.remove();
+  state.sketch?.remove();
 
   state.sketch = new P5((p) => {
-    const marbles = state.participants.map((person, startIndex) => ({
-      ...person,
+    const START_Z = -2300;
+    const FINISH_Z = 330;
+    const TRACK_LENGTH = 3050;
+    const laneGap = Math.min(92, Math.max(52, 720 / total));
+    const trackWidth = laneGap * total + 100;
+    const marbleRadius = Math.min(35, Math.max(24, laneGap * 0.34));
+    const marbles = state.participants.map((participant, startIndex) => ({
+      ...participant,
       startIndex,
-      finishIndex: finishIndex.get(person.id),
-      delay: startIndex * 170,
-      duration: 4200 + finishIndex.get(person.id) * 150,
-      phase: (startIndex + 1) * 1.73,
+      finishIndex: finishIndex.get(participant.id),
+      duration: 6500 + finishIndex.get(participant.id) * 240,
+      phase: (startIndex + 1) * 1.731,
+      z: START_Z,
+      x: 0,
+      progress: 0,
+      label: null,
     }));
     let startedAt;
     let completed = false;
+    let lastStatus = '';
 
     function dimensions() {
       return {
@@ -186,39 +204,87 @@ function startSketch(P5) {
       };
     }
 
+    function laneX(index) {
+      return (index - (total - 1) / 2) * laneGap;
+    }
+
     function finishRace() {
       if (completed) return;
       completed = true;
       state.raceDone = true;
-      elements.raceStatus.textContent = 'Ordem definida. Formando pares…';
-      setTimeout(showResults, 800);
+      elements.raceStatus.textContent = 'Bandeirada! Formando os pares…';
+      setTimeout(showResults, 1100);
+    }
+
+    function makeLabel(participant) {
+      const graphic = p.createGraphics(160, 80);
+      graphic.pixelDensity(1);
+      graphic.clear();
+      graphic.noStroke();
+      graphic.fill(5, 10, 20, 225);
+      graphic.rect(8, 8, 144, 64, 22);
+      graphic.stroke(255, 255, 255, 65);
+      graphic.strokeWeight(2);
+      graphic.noFill();
+      graphic.rect(8, 8, 144, 64, 22);
+      graphic.noStroke();
+      graphic.fill(255);
+      graphic.textAlign(graphic.CENTER, graphic.CENTER);
+      graphic.textStyle(graphic.BOLD);
+      graphic.textSize(34);
+      graphic.text(participant.code, 80, 42);
+      return graphic;
     }
 
     p.setup = () => {
       const size = dimensions();
       p.pixelDensity(1);
-      p.createCanvas(size.width, size.height).parent(container);
+      p.createCanvas(size.width, size.height, p.WEBGL).parent(container);
       p.frameRate(60);
+      p.randomSeed(state.seed);
+      p.noiseSeed(state.seed);
+      p.perspective(p.PI / 3.2, size.width / size.height, 10, 7000);
+      marbles.forEach((marble) => { marble.label = makeLabel(marble); });
       startedAt = p.millis();
       globalThis.__marbleRunReady = true;
     };
 
     p.draw = () => {
       const elapsed = p.millis() - startedAt;
-      p.clear();
-      drawTrack(p);
+      p.background(6, 10, 22);
 
       let finished = 0;
       marbles.forEach((marble) => {
-        const rawProgress = Math.max(0, Math.min(1, (elapsed - marble.delay) / marble.duration));
-        if (rawProgress >= 1) finished += 1;
-        drawMarble(p, marble, rawProgress, total);
+        const raw = Math.max(0, Math.min(1, elapsed / marble.duration));
+        marble.progress = smoothstep(raw);
+        marble.z = p.lerp(START_Z, FINISH_Z, marble.progress);
+        const baseX = p.lerp(laneX(marble.startIndex), laneX(marble.finishIndex), marble.progress);
+        const weave = Math.sin(marble.progress * Math.PI * 7 + marble.phase) * laneGap * 0.16 * Math.sin(marble.progress * Math.PI);
+        marble.x = baseX + weave;
+        if (raw >= 1) finished += 1;
       });
 
-      const racing = Math.min(total, Math.max(0, Math.ceil((elapsed + 100) / 170)));
-      elements.raceStatus.textContent = finished
-        ? `${finished} de ${total} bolinhas chegaram`
-        : `Liberando ${racing} de ${total} bolinhas`;
+      const leaderZ = Math.max(...marbles.map((marble) => marble.z));
+      const cameraZ = Math.min(FINISH_Z + 930, leaderZ + 920);
+      p.camera(0, -500, cameraZ, 0, 55, cameraZ - 920, 0, 1, 0);
+
+      p.ambientLight(48, 58, 78);
+      p.directionalLight(255, 242, 214, -0.4, 0.8, -0.55);
+      p.directionalLight(74, 130, 255, 0.65, 0.2, 0.5);
+      p.pointLight(180, 225, 255, 0, -250, leaderZ + 150);
+
+      drawCircuit();
+      marbles.slice().sort((a, b) => a.z - b.z).forEach(drawMarble);
+
+      if (p.frameCount % 12 === 0) {
+        const status = finished
+          ? `${finished} de ${total} estados cruzaram a linha`
+          : `Corrida 3D · ${total} estados na pista`;
+        if (status !== lastStatus) {
+          elements.raceStatus.textContent = status;
+          lastStatus = status;
+        }
+      }
 
       if (finished === total || state.raceDone) finishRace();
     };
@@ -226,74 +292,155 @@ function startSketch(P5) {
     p.windowResized = () => {
       const size = dimensions();
       p.resizeCanvas(size.width, size.height);
+      p.perspective(p.PI / 3.2, size.width / size.height, 10, 7000);
     };
 
-    function drawTrack(ctx) {
-      const w = ctx.width;
-      const h = ctx.height;
-      const rows = Math.max(7, Math.floor(h / 78));
-      ctx.noStroke();
+    function drawCircuit() {
+      p.push();
+      p.noStroke();
+      p.ambientMaterial(19, 26, 39);
+      p.translate(0, 118, (START_Z + FINISH_Z) / 2);
+      p.box(trackWidth, 28, TRACK_LENGTH);
+      p.pop();
 
-      for (let row = 0; row < rows; row += 1) {
-        const y = 100 + row * ((h - 225) / Math.max(1, rows - 1));
-        const columns = 8;
-        for (let column = 0; column < columns; column += 1) {
-          const offset = row % 2 ? w / columns / 2 : 0;
-          const x = 40 + offset + column * ((w - 80) / columns);
-          if (x > w - 25) continue;
-          ctx.fill(255, 255, 255, 22);
-          ctx.circle(x, y, 10);
-          ctx.fill(255, 255, 255, 6);
-          ctx.circle(x, y, 23);
+      p.push();
+      p.noStroke();
+      p.ambientMaterial(23, 71, 52);
+      p.translate(-(trackWidth / 2 + 170), 132, (START_Z + FINISH_Z) / 2);
+      p.box(300, 18, TRACK_LENGTH);
+      p.translate(trackWidth + 340, 0, 0);
+      p.box(300, 18, TRACK_LENGTH);
+      p.pop();
+
+      for (let lane = 1; lane < total; lane += 1) {
+        const x = laneX(lane) - laneGap / 2;
+        for (let z = START_Z + 35; z < FINISH_Z; z += 155) {
+          p.push();
+          p.noStroke();
+          p.emissiveMaterial(226, 232, 240);
+          p.translate(x, 101, z);
+          p.box(3, 3, 76);
+          p.pop();
         }
       }
 
-      ctx.stroke(255, 255, 255, 28);
-      ctx.strokeWeight(1);
-      ctx.noFill();
-      for (let lane = 0; lane < total; lane += 1) {
-        const x = finishX(ctx, lane, total);
-        ctx.line(x, h - 90, x, h - 35);
-        ctx.arc(x, h - 28, Math.max(30, w / total - 9), 28, ctx.PI, ctx.TWO_PI);
+      drawKerb(-trackWidth / 2 - 8);
+      drawKerb(trackWidth / 2 + 8);
+      drawFinishLine();
+      drawStartingGrid();
+      drawGrandstands();
+      drawTrackLights();
+    }
+
+    function drawKerb(x) {
+      for (let z = START_Z; z < FINISH_Z + 70; z += 92) {
+        const red = Math.floor((z - START_Z) / 92) % 2 === 0;
+        p.push();
+        p.noStroke();
+        p.ambientMaterial(red ? 220 : 238, red ? 40 : 238, red ? 52 : 238);
+        p.translate(x, 101, z + 46);
+        p.box(22, 10, 92);
+        p.pop();
       }
 
-      ctx.stroke(200, 245, 96, 32);
-      ctx.line(w * .14, 68, w * .86, 68);
-      ctx.line(w * .12, h - 90, w * .88, h - 90);
+      p.push();
+      p.noStroke();
+      p.metalness(35);
+      p.specularMaterial(112, 126, 148);
+      p.translate(x + Math.sign(x) * 22, 42, (START_Z + FINISH_Z) / 2);
+      p.box(7, 7, TRACK_LENGTH);
+      p.translate(0, 55, 0);
+      p.box(8, 8, TRACK_LENGTH);
+      p.pop();
     }
 
-    function drawMarble(ctx, marble, rawProgress, count) {
-      const progress = easeInOutCubic(rawProgress);
-      const start = startX(ctx, marble.startIndex, count);
-      const finish = finishX(ctx, marble.finishIndex, count);
-      const startY = 53;
-      const finishY = ctx.height - 58;
-      const wave = Math.sin(progress * Math.PI * 9 + marble.phase) * (1 - progress) * Math.min(42, ctx.width / 18);
-      const curve = Math.sin(progress * Math.PI) * (finish - start) * .18;
-      const x = start + (finish - start) * progress + wave + curve;
-      const y = startY + (finishY - startY) * progress;
-      const diameter = Math.max(24, Math.min(38, ctx.width / (count + 7)));
-
-      ctx.noStroke();
-      ctx.fill(0, 0, 0, 55);
-      ctx.ellipse(x + 4, y + 7, diameter * .9, diameter * .55);
-      ctx.fill(marble.color);
-      ctx.circle(x, y, diameter);
-      ctx.fill(255, 255, 255, 115);
-      ctx.circle(x - diameter * .18, y - diameter * .2, diameter * .18);
-      ctx.fill(10, 13, 23, 170);
-      ctx.textAlign(ctx.CENTER, ctx.CENTER);
-      ctx.textStyle(ctx.BOLD);
-      ctx.textSize(Math.max(9, diameter * .31));
-      ctx.text(marble.name.slice(0, 2).toUpperCase(), x, y + 1);
+    function drawFinishLine() {
+      const tiles = 12;
+      const tileWidth = trackWidth / tiles;
+      for (let row = 0; row < 3; row += 1) {
+        for (let column = 0; column < tiles; column += 1) {
+          const light = (row + column) % 2 === 0;
+          p.push();
+          p.noStroke();
+          p.emissiveMaterial(light ? 245 : 18, light ? 245 : 21, light ? 245 : 31);
+          p.translate(-trackWidth / 2 + tileWidth / 2 + column * tileWidth, 99, FINISH_Z - 22 + row * 22);
+          p.box(tileWidth + 1, 4, 23);
+          p.pop();
+        }
+      }
     }
 
-    function startX(ctx, index, count) {
-      return count === 1 ? ctx.width / 2 : ctx.width * .14 + index * (ctx.width * .72 / (count - 1));
+    function drawStartingGrid() {
+      for (let lane = 0; lane < total; lane += 1) {
+        p.push();
+        p.noStroke();
+        p.emissiveMaterial(218, 226, 238);
+        p.translate(laneX(lane), 99, START_Z + 65);
+        p.box(laneGap * 0.62, 4, 12);
+        p.pop();
+      }
     }
 
-    function finishX(ctx, index, count) {
-      return count === 1 ? ctx.width / 2 : ctx.width * .13 + index * (ctx.width * .74 / (count - 1));
+    function drawGrandstands() {
+      for (const side of [-1, 1]) {
+        for (let z = -40; z < FINISH_Z + 500; z += 145) {
+          p.push();
+          p.noStroke();
+          p.ambientMaterial(24, 34, 55);
+          p.translate(side * (trackWidth / 2 + 195), 54, z);
+          p.box(230, 105, 118);
+          p.ambientMaterial(53, 72, 104);
+          p.translate(-side * 28, -70, 0);
+          p.box(174, 42, 108);
+          p.pop();
+        }
+      }
+    }
+
+    function drawTrackLights() {
+      for (const side of [-1, 1]) {
+        for (let z = START_Z + 260; z < FINISH_Z + 300; z += 430) {
+          p.push();
+          p.noStroke();
+          p.ambientMaterial(75, 85, 105);
+          p.translate(side * (trackWidth / 2 + 82), 0, z);
+          p.box(8, 205, 8);
+          p.emissiveMaterial(190, 230, 255);
+          p.translate(-side * 15, -108, 0);
+          p.box(42, 12, 18);
+          p.pop();
+        }
+      }
+    }
+
+    function drawMarble(marble) {
+      const bounce = Math.abs(Math.sin(marble.progress * Math.PI * 22 + marble.phase)) * 6;
+      const spin = marble.progress * Math.PI * 28;
+
+      p.push();
+      p.noStroke();
+      p.ambientMaterial(0, 0, 0, 90);
+      p.translate(marble.x + 5, 101, marble.z + 8);
+      p.rotateX(p.HALF_PI);
+      p.ellipse(0, 0, marbleRadius * 1.55, marbleRadius * 0.72);
+      p.pop();
+
+      p.push();
+      p.translate(marble.x, 78 - marbleRadius - bounce, marble.z);
+      p.rotateX(spin);
+      p.rotateZ(spin * 0.38 + marble.phase);
+      p.noStroke();
+      p.specularMaterial(marble.color);
+      p.shininess(95);
+      p.sphere(marbleRadius, 18, 12);
+      p.pop();
+
+      p.push();
+      p.translate(marble.x, 31 - marbleRadius - bounce, marble.z + marbleRadius + 8);
+      p.texture(marble.label);
+      p.noStroke();
+      p.plane(64, 32);
+      p.pop();
     }
   });
 }
@@ -326,9 +473,9 @@ function pairCard(pair, index) {
       <div class="pair-card-inner">
         <div class="pair-face pair-front"><span>TOQUE PARA REVELAR · PAR ${String(index + 1).padStart(2, '0')}</span></div>
         <div class="pair-face pair-back">
-          <div class="pair-person"><div class="big-marble" style="--color:${first.color}"></div><strong>${escapeHtml(first.name)}</strong></div>
+          <div class="pair-person"><div class="big-marble" style="--color:${first.color}">${first.code}</div><strong>${escapeHtml(first.name)}</strong></div>
           <span class="link-symbol">↔</span>
-          <div class="pair-person"><div class="big-marble" style="--color:${last.color}"></div><strong>${escapeHtml(last.name)}</strong></div>
+          <div class="pair-person"><div class="big-marble" style="--color:${last.color}">${last.code}</div><strong>${escapeHtml(last.name)}</strong></div>
         </div>
       </div>
     </article>`;
@@ -336,6 +483,7 @@ function pairCard(pair, index) {
 
 function showResults() {
   state.raceDone = true;
+  state.sketch?.noLoop?.();
   elements.gameView.classList.add('hidden');
   elements.resultsView.classList.remove('hidden');
   elements.pairGrid.innerHTML = state.pairs.map(pairCard).join('');
@@ -355,9 +503,9 @@ function showResults() {
 
 async function copyResults() {
   const text = [
-    '🎁 Pares do Marble Match',
+    '🎁 Pares do Marble Match Brasil',
     '',
-    ...state.pairs.map(([first, last], index) => `${index + 1}. ${first.name} ↔ ${last.name}`),
+    ...state.pairs.map(([first, last], index) => `${index + 1}. ${first.name} (${first.code}) ↔ ${last.name} (${last.code})`),
   ].join('\n');
 
   try {
@@ -381,15 +529,11 @@ function resetGame() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-elements.form.addEventListener('submit', (event) => {
-  event.preventDefault();
-  addParticipant(elements.nameInput.value);
-});
-
 elements.demoButton.addEventListener('click', () => {
-  state.participants = DEMO_NAMES.map((name, index) => ({ id: createId(), name, color: COLORS[index] }));
-  state.selectedColor = firstAvailableColor();
-  setMessage('Exemplo pronto. Você pode remover ou trocar os nomes.');
+  state.participants = BRAZIL_STATES
+    .filter((brazilState) => DEMO_CODES.includes(brazilState.code))
+    .map(participantFromState);
+  setMessage('Exemplo pronto com seis estados.');
   render();
 });
 

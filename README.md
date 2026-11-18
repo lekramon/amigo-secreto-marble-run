@@ -1,6 +1,6 @@
-# Marble Match — Amigo Secreto
+# Marble Match Brasil — Amigo Secreto
 
-Um marble run animado para formar pares de amigo secreto. Cada participante escolhe um nome e uma cor; as bolinhas percorrem a pista em uma ordem sorteada e os pares são montados das extremidades para o centro:
+Um marble run 3D para formar pares de amigo secreto. Cada participante escolhe um estado brasileiro; as bolinhas percorrem uma pista de corrida e os pares são montados das extremidades para o centro:
 
 - 1º colocado ↔ último colocado
 - 2º colocado ↔ penúltimo colocado
@@ -8,13 +8,15 @@ Um marble run animado para formar pares de amigo secreto. Cada participante esco
 
 ## Recursos
 
-- 2 a 12 participantes, sempre em quantidade par
-- nomes e cores únicos
+- catálogo com os 26 estados e o Distrito Federal
+- seleção de 2 a 12 estados, sempre em quantidade par
+- cor exclusiva e sigla visível para cada estado
+- filtros por região brasileira
+- autódromo 3D em WebGL com pista, boxes, arquibancadas, iluminação e câmera dinâmica
 - ordem de chegada pseudoaleatória e reproduzível por semente
-- animação responsiva em p5.js
 - resultados escondidos em cartões individuais
 - botão para copiar o resultado
-- funcionamento 100% local no navegador, sem backend ou coleta de nomes
+- funcionamento 100% local no navegador, sem backend ou coleta de dados
 
 ## Executar localmente
 
@@ -29,9 +31,10 @@ Acesse `http://localhost:4173`.
 
 - `index.html` — interface
 - `styles.css` — design responsivo
-- `src/app.js` — estado, interação e animação
+- `src/app.js` — seleção, interação e corrida 3D
+- `src/states.js` — catálogo e cores dos estados brasileiros
 - `src/pairing.js` — sorteio, validação e pareamento
-- `tests/pairing.test.mjs` — testes da lógica central
+- `tests/pairing.test.mjs` — testes da lógica central e do catálogo
 
 ## Licença
 

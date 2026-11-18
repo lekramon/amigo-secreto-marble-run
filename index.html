@@ -27,8 +27,8 @@
     <section class="hero" id="setup-view">
       <div class="hero-copy">
         <p class="eyebrow"><span></span> SORTEIO EM MOVIMENTO</p>
-        <h1>Escolha sua cor.<br><em>Deixe o acaso rolar.</em></h1>
-        <p class="lede">Cada pessoa entra com um nome e uma cor. As bolinhas atravessam a pista, formam uma ordem de chegada e o jogo une a primeira à última, a segunda à penúltima — até ninguém sobrar.</p>
+        <h1>Escolha seu estado.<br><em>Deixe o acaso rolar.</em></h1>
+        <p class="lede">Cada pessoa escolhe um estado brasileiro. As bolinhas entram numa corrida 3D, formam a ordem de chegada e o jogo une a primeira à última, a segunda à penúltima — até ninguém sobrar.</p>
 
         <div class="how-it-works">
           <div><strong>01</strong><span>Monte<br>a turma</span></div>
@@ -40,40 +40,31 @@
       <div class="setup-card">
         <div class="card-heading">
           <div>
-            <p class="card-kicker">PARTICIPANTES</p>
-            <h2>Quem vai jogar?</h2>
+            <p class="card-kicker">SELEÇÃO NACIONAL</p>
+            <h2>Escolha os estados</h2>
           </div>
           <span class="count-badge" id="participant-count">0 / 12</span>
         </div>
 
-        <form id="participant-form" autocomplete="off">
-          <label for="participant-name">Nome ou apelido</label>
-          <div class="name-row">
-            <input id="participant-name" name="name" type="text" maxlength="22" placeholder="Ex.: Ana" required>
-            <button class="add-button" type="submit" aria-label="Adicionar participante">+</button>
-          </div>
-
-          <fieldset>
-            <legend>Escolha uma cor</legend>
-            <div class="color-grid" id="color-grid"></div>
-          </fieldset>
-          <p class="form-message" id="form-message" role="status"></p>
-        </form>
+        <p class="selector-help">Selecione entre 2 e 12 estados, sempre em quantidade par. Cada estado entra na pista com sua própria cor.</p>
+        <div class="region-filters" id="region-filters" role="group" aria-label="Filtrar por região"></div>
+        <div class="state-grid" id="state-grid" role="group" aria-label="Estados brasileiros"></div>
+        <p class="form-message" id="form-message" role="status"></p>
 
         <div class="participant-list" id="participant-list" aria-live="polite">
           <div class="empty-state">
             <span class="empty-orbit"><i></i></span>
-            <p>As bolinhas aparecem aqui.</p>
+            <p>Os estados selecionados aparecem aqui.</p>
           </div>
         </div>
 
         <div class="setup-actions">
-          <button class="ghost-button" id="demo-button" type="button">Preencher exemplo</button>
+          <button class="ghost-button" id="demo-button" type="button">Selecionar exemplo</button>
           <button class="start-button" id="start-button" type="button" disabled>
             <span>INICIAR MARBLE RUN</span><b>→</b>
           </button>
         </div>
-        <p class="privacy-note">Tudo acontece no seu navegador. Nenhum nome é enviado para um servidor.</p>
+        <p class="privacy-note">Tudo acontece no seu navegador. Não há cadastro nem coleta de dados.</p>
       </div>
     </section>
 
@@ -81,15 +72,15 @@
       <div class="game-topbar">
         <div>
           <p class="eyebrow"><span></span> PISTA LIBERADA</p>
-          <h2 id="game-title">Que comecem os jogos.</h2>
+          <h2 id="game-title">Largada autorizada.</h2>
         </div>
         <div class="race-status"><i></i><span id="race-status">Preparando as bolinhas…</span></div>
       </div>
 
       <div class="track-shell">
-        <div class="track-label left">ORDEM<br>DE LARGADA</div>
+        <div class="track-label left">AUTÓDROMO<br>BRASIL 3D</div>
         <div id="canvas-container" role="img" aria-label="Animação do marble run"></div>
-        <div class="track-label right">ORDEM<br>DE CHEGADA</div>
+        <div class="track-label right">CÂMERA<br>DINÂMICA</div>
         <div class="track-overlay">
           <span>FIRST</span><span>LAST</span>
         </div>
