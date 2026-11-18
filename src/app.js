@@ -9,6 +9,15 @@ import { RaceAudio } from './audio.js';
 import { BRAZIL_STATES } from './states.js';
 import { COUNTRIES } from './countries.js';
 import { MARBLE_COLORS } from './colors.js';
+import {
+  applyTrackBoosts,
+  TRACK_BOOST_ZONES,
+  TRACK_FINISH_Z,
+  TRACK_LENGTH,
+  TRACK_START_Z,
+  trackCenterX,
+  trackSurfaceY,
+} from './track.js';
 
 const REGIONS = ['Todos', 'Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
 const MAX_MARBLES = 12;
@@ -278,9 +287,8 @@ function startSketch(P5) {
   state.sketch?.remove();
 
   state.sketch = new P5((p) => {
-    const START_Z = -2450;
-    const FINISH_Z = 370;
-    const TRACK_LENGTH = 3300;
+    const START_Z = TRACK_START_Z;
+    const FINISH_Z = TRACK_FINISH_Z;
     const COUNTDOWN_MS = 1320;
     const laneGap = Math.min(92, Math.max(52, 720 / total));
     const trackWidth = laneGap * total + 110;
@@ -289,7 +297,7 @@ function startSketch(P5) {
       ...participant,
       startIndex,
       finishIndex: finishIndex.get(participant.id),
-      duration: 6900 + finishIndex.get(participant.id) * 300,
+      duration: 10500 + finishIndex.get(participant.id) * 320,
       phase: (startIndex + 1) * 1.731,
       z: START_Z,
       x: 0,
@@ -314,6 +322,27 @@ function startSketch(P5) {
 
     function laneX(index) {
       return (index - (total - 1) / 2) * laneGap;
+    }
+
+    function trackFrame(progress, lateral = 0, vertical = 0) {
+      const t = Math.max(0, Math.min(1, progress));
+      const nextT = Math.min(1, t + 0.0025);
+      const previousT = Math.max(0, t - 0.0025);
+      const z = p.lerp(START_Z, FINISH_Z, t);
+      const previousZ = p.lerp(START_Z, FINISH_Z, previousT);
+      const nextZ = p.lerp(START_Z, FINISH_Z, nextT);
+      const centerX = trackCenterX(t);
+      const surfaceY = trackSurfaceY(t);
+      const yaw = Math.atan2(trackCenterX(nextT) - trackCenterX(previousT), nextZ - previousZ);
+      const pitch = Math.atan2(trackSurfaceY(nextT) - trackSurfaceY(previousT), nextZ - previousZ);
+
+      return {
+        x: centerX + Math.cos(yaw) * lateral,
+        y: surfaceY + vertical,
+        z: z - Math.sin(yaw) * lateral,
+        yaw,
+        pitch,
+      };
     }
 
     function finishRace() {
@@ -399,7 +428,7 @@ function startSketch(P5) {
       p.frameRate(60);
       p.randomSeed(state.seed);
       p.noiseSeed(state.seed);
-      p.perspective(p.PI / 3.15, size.width / size.height, 10, 7500);
+      p.perspective(p.PI / 3.15, size.width / size.height, 10, 9000);
       marbles.forEach((marble) => {
         marble.textureImage = marble.flagImage || makeColorTexture(marble);
         marble.label = makeLabel(marble);
@@ -422,11 +451,14 @@ function startSketch(P5) {
       const finishers = [];
       marbles.forEach((marble) => {
         const raw = Math.max(0, Math.min(1, raceElapsed / marble.duration));
-        marble.progress = smoothstep(raw);
-        marble.z = p.lerp(START_Z, FINISH_Z, marble.progress);
+        marble.progress = applyTrackBoosts(smoothstep(raw));
         const baseX = p.lerp(laneX(marble.startIndex), laneX(marble.finishIndex), marble.progress);
         const weave = Math.sin(marble.progress * Math.PI * 8 + marble.phase) * laneGap * 0.18 * Math.sin(marble.progress * Math.PI);
-        marble.x = baseX + weave;
+        const frame = trackFrame(marble.progress, baseX + weave);
+        marble.x = frame.x;
+        marble.y = frame.y;
+        marble.z = frame.z;
+        marble.yaw = frame.yaw;
         if (raw >= 1 && !marble.arrived) {
           finishers.push(marble);
         }
@@ -437,17 +469,31 @@ function startSketch(P5) {
         recordArrival(marble);
       });
 
-      const leaderZ = Math.max(...marbles.map((marble) => marble.z));
-      const cameraZ = Math.min(FINISH_Z + 960, leaderZ + 940);
-      p.camera(0, -510, cameraZ, 0, 52, cameraZ - 940, 0, 1, 0);
+      const leaderProgress = Math.max(...marbles.map((marble) => marble.progress));
+      const cameraFrame = trackFrame(Math.min(1, leaderProgress + 0.16));
+      const targetFrame = trackFrame(Math.max(0, leaderProgress - 0.035));
+      const tunnelPosition = Math.max(0, Math.min(1, (leaderProgress - 0.24) / 0.46));
+      const tunnelBlend = Math.sin(tunnelPosition * Math.PI);
+      const cameraLift = p.lerp(520, 155, tunnelBlend);
+      p.camera(
+        cameraFrame.x,
+        cameraFrame.y - cameraLift,
+        cameraFrame.z + 180,
+        targetFrame.x,
+        targetFrame.y - 18,
+        targetFrame.z,
+        0,
+        1,
+        0,
+      );
 
       p.ambientLight(24, 30, 46);
       p.directionalLight(150, 142, 130, -0.35, 0.8, -0.55);
       p.directionalLight(38, 78, 145, 0.7, 0.15, 0.5);
-      p.pointLight(82, 122, 160, 0, -260, leaderZ + 180);
+      p.pointLight(82, 122, 160, cameraFrame.x, cameraFrame.y - 260, cameraFrame.z);
 
       drawCircuit(elapsed);
-      marbles.slice().sort((a, b) => a.z - b.z).forEach(drawMarble);
+      marbles.slice().sort((a, b) => a.progress - b.progress).forEach(drawMarble);
 
       if (p.frameCount % 12 === 0) {
         let status;
@@ -470,7 +516,7 @@ function startSketch(P5) {
     p.windowResized = () => {
       const size = dimensions();
       p.resizeCanvas(size.width, size.height);
-      p.perspective(p.PI / 3.15, size.width / size.height, 10, 7500);
+      p.perspective(p.PI / 3.15, size.width / size.height, 10, 9000);
     };
 
     function drawCircuit(elapsed) {
@@ -479,50 +525,84 @@ function startSketch(P5) {
       drawKerbsAndRails();
       drawFinishLine();
       drawStartingGrid();
+      drawBoostPads();
+      drawDescentMarkers();
+      drawTunnel();
       drawPitLane();
       drawGrandstands();
       drawTrackLights();
-      drawGantry(START_Z + 125, false, elapsed);
-      drawGantry(FINISH_Z + 100, true, elapsed);
+      drawGantry(0.035, false, elapsed);
+      drawGantry(0.985, true, elapsed);
+    }
+
+    function drawTrackBox(progress, lateral, vertical, width, height, length, color, emissive = false) {
+      const frame = trackFrame(progress, lateral, vertical);
+      p.push();
+      p.noStroke();
+      if (emissive) p.emissiveMaterial(color);
+      else p.ambientMaterial(color);
+      p.translate(frame.x, frame.y, frame.z);
+      p.rotateY(frame.yaw);
+      p.rotateX(-frame.pitch);
+      p.box(width, height, length);
+      p.pop();
+    }
+
+    function drawTrackRibbon(inner, outer, vertical, color) {
+      p.push();
+      p.noStroke();
+      p.ambientMaterial(color);
+      p.beginShape(p.TRIANGLE_STRIP);
+      for (let index = 0; index <= 96; index += 1) {
+        const progress = index / 96;
+        const first = trackFrame(progress, inner, vertical);
+        const second = trackFrame(progress, outer, vertical);
+        p.vertex(first.x, first.y, first.z);
+        p.vertex(second.x, second.y, second.z);
+      }
+      p.endShape();
+      p.pop();
     }
 
     function drawTrackBase() {
-      p.push();
-      p.noStroke();
-      p.ambientMaterial(16, 23, 36);
-      p.translate(0, 118, (START_Z + FINISH_Z) / 2);
-      p.box(trackWidth, 30, TRACK_LENGTH);
-      p.pop();
-
       for (const side of [-1, 1]) {
-        p.push();
-        p.noStroke();
-        p.ambientMaterial(18, 72, 49);
-        p.translate(side * (trackWidth / 2 + 190), 134, (START_Z + FINISH_Z) / 2);
-        p.box(330, 18, TRACK_LENGTH);
-        p.pop();
+        drawTrackRibbon(
+          side * (trackWidth / 2 + 18),
+          side * (trackWidth / 2 + 390),
+          32,
+          side < 0 ? '#124a37' : '#173f32',
+        );
       }
+
+      drawTrackRibbon(-trackWidth / 2, trackWidth / 2, 0, '#101724');
+      drawTrackRibbon(-trackWidth / 2, trackWidth / 2, 17, '#080d17');
     }
 
     function drawColoredLanes() {
       state.participants.forEach((participant, lane) => {
-        const x = laneX(lane);
         p.push();
-        p.noStroke();
-        p.emissiveMaterial(participant.color);
-        p.translate(x, 101, (START_Z + FINISH_Z) / 2);
-        p.box(3, 3, TRACK_LENGTH - 80);
+        p.noFill();
+        p.stroke(participant.color);
+        p.strokeWeight(3);
+        p.beginShape();
+        for (let index = 1; index < 96; index += 1) {
+          const point = trackFrame(index / 96, laneX(lane), -3);
+          p.vertex(point.x, point.y, point.z);
+        }
+        p.endShape();
         p.pop();
       });
 
       for (let lane = 1; lane < total; lane += 1) {
-        const x = laneX(lane) - laneGap / 2;
-        for (let z = START_Z + 35; z < FINISH_Z; z += 155) {
+        const lateral = laneX(lane) - laneGap / 2;
+        for (let index = 2; index < 92; index += 5) {
           p.push();
-          p.noStroke();
-          p.emissiveMaterial(225, 232, 241);
-          p.translate(x, 100, z);
-          p.box(3, 3, 74);
+          p.noFill();
+          p.stroke(225, 232, 241);
+          p.strokeWeight(3);
+          const first = trackFrame(index / 96, lateral, -4);
+          const second = trackFrame((index + 2.4) / 96, lateral, -4);
+          p.line(first.x, first.y, first.z, second.x, second.y, second.z);
           p.pop();
         }
       }
@@ -530,31 +610,38 @@ function startSketch(P5) {
 
     function drawKerbsAndRails() {
       for (const side of [-1, 1]) {
-        const x = side * (trackWidth / 2 + 8);
-        for (let z = START_Z; z < FINISH_Z + 90; z += 92) {
-          const red = Math.floor((z - START_Z) / 92) % 2 === 0;
-          p.push();
-          p.noStroke();
-          p.ambientMaterial(red ? 226 : 240, red ? 42 : 240, red ? 58 : 240);
-          p.translate(x, 101, z + 46);
-          p.box(23, 10, 92);
-          p.pop();
+        for (let index = 0; index < 80; index += 1) {
+          drawTrackBox(
+            (index + 0.5) / 80,
+            side * (trackWidth / 2 + 9),
+            -1,
+            22,
+            8,
+            TRACK_LENGTH / 80 + 3,
+            index % 2 === 0 ? '#e2263a' : '#f5f5f4',
+          );
         }
 
         p.push();
-        p.noStroke();
-        p.specularMaterial(112, 126, 148);
-        p.translate(x + side * 24, 42, (START_Z + FINISH_Z) / 2);
-        p.box(8, 8, TRACK_LENGTH);
-        p.translate(0, 56, 0);
-        p.box(9, 9, TRACK_LENGTH);
-        p.pop();
-
-        p.push();
-        p.noStroke();
-        p.emissiveMaterial(side < 0 ? '#22d3ee' : '#c8f560');
-        p.translate(x + side * 26, 70, (START_Z + FINISH_Z) / 2);
-        p.box(4, 4, TRACK_LENGTH);
+        p.noFill();
+        p.stroke(128, 143, 165);
+        p.strokeWeight(8);
+        for (const vertical of [-58, -6]) {
+          p.beginShape();
+          for (let index = 0; index <= 96; index += 1) {
+            const point = trackFrame(index / 96, side * (trackWidth / 2 + 35), vertical);
+            p.vertex(point.x, point.y, point.z);
+          }
+          p.endShape();
+        }
+        p.stroke(side < 0 ? '#22d3ee' : '#c8f560');
+        p.strokeWeight(4);
+        p.beginShape();
+        for (let index = 0; index <= 96; index += 1) {
+          const point = trackFrame(index / 96, side * (trackWidth / 2 + 38), -30);
+          p.vertex(point.x, point.y, point.z);
+        }
+        p.endShape();
         p.pop();
       }
     }
@@ -565,25 +652,80 @@ function startSketch(P5) {
       for (let row = 0; row < 4; row += 1) {
         for (let column = 0; column < tiles; column += 1) {
           const light = (row + column) % 2 === 0;
-          p.push();
-          p.noStroke();
-          p.emissiveMaterial(light ? 245 : 14, light ? 245 : 18, light ? 245 : 28);
-          p.translate(-trackWidth / 2 + tileWidth / 2 + column * tileWidth, 98, FINISH_Z - 28 + row * 19);
-          p.box(tileWidth + 1, 4, 20);
-          p.pop();
+          drawTrackBox(
+            0.978 + row * 0.004,
+            -trackWidth / 2 + tileWidth / 2 + column * tileWidth,
+            -4,
+            tileWidth + 1,
+            4,
+            22,
+            light ? '#f5f5f5' : '#0e121c',
+            true,
+          );
         }
       }
     }
 
     function drawStartingGrid() {
       for (let lane = 0; lane < total; lane += 1) {
+        drawTrackBox(0.018, laneX(lane), -4, laneGap * 0.64, 4, 12, '#e2e8f0', true);
+        drawTrackBox(0.009, laneX(lane), -4, 4, 4, 105, '#e2e8f0', true);
+      }
+    }
+
+    function drawBoostPads() {
+      TRACK_BOOST_ZONES.forEach(([start, end], section) => {
+        for (let stripe = 0; stripe < 5; stripe += 1) {
+          drawTrackBox(
+            p.lerp(start, end, 0.18 + stripe * 0.16),
+            0,
+            -5,
+            trackWidth * (0.72 - stripe * 0.055),
+            4,
+            15,
+            section % 2 === 0 ? '#22d3ee' : '#c8f560',
+            true,
+          );
+        }
+      });
+    }
+
+    function drawDescentMarkers() {
+      [0.105, 0.37].forEach((progress, marker) => {
+        const frame = trackFrame(progress);
         p.push();
+        p.translate(frame.x, frame.y, frame.z);
+        p.rotateY(frame.yaw);
         p.noStroke();
-        p.emissiveMaterial(226, 232, 240);
-        p.translate(laneX(lane), 99, START_Z + 65);
-        p.box(laneGap * 0.64, 4, 12);
-        p.translate(0, 0, -56);
-        p.box(4, 4, 110);
+        p.emissiveMaterial(marker === 0 ? '#f97316' : '#facc15');
+        p.translate(-(trackWidth / 2 + 54), -76, 0);
+        p.box(12, 152, 12);
+        p.translate(trackWidth + 108, 0, 0);
+        p.box(12, 152, 12);
+        p.translate(-(trackWidth + 108) / 2, -76, 0);
+        p.box(trackWidth + 120, 13, 16);
+        p.pop();
+      });
+    }
+
+    function drawTunnel() {
+      for (let index = 0; index < 8; index += 1) {
+        const progress = 0.515 + index * 0.011;
+        const frame = trackFrame(progress);
+        p.push();
+        p.translate(frame.x, frame.y, frame.z);
+        p.rotateY(frame.yaw);
+        p.noStroke();
+        p.ambientMaterial('#1e293b');
+        p.translate(-(trackWidth / 2 + 26), -105, 0);
+        p.box(24, 210, 24);
+        p.translate(trackWidth + 52, 0, 0);
+        p.box(24, 210, 24);
+        p.translate(-(trackWidth + 52) / 2, -108, 0);
+        p.box(trackWidth + 76, 24, 30);
+        p.emissiveMaterial(index % 2 === 0 ? '#a855f7' : '#22d3ee');
+        p.translate(0, 12, -16);
+        p.box(trackWidth + 42, 5, 5);
         p.pop();
       }
     }
@@ -629,11 +771,12 @@ function startSketch(P5) {
 
     function drawTrackLights() {
       for (const side of [-1, 1]) {
-        for (let z = START_Z + 220; z < FINISH_Z + 350; z += 390) {
+        for (let progress = 0.065; progress < 1; progress += 0.075) {
+          const frame = trackFrame(progress, side * (trackWidth / 2 + 86));
           p.push();
           p.noStroke();
           p.ambientMaterial(76, 86, 108);
-          p.translate(side * (trackWidth / 2 + 86), 0, z);
+          p.translate(frame.x, frame.y - 102, frame.z);
           p.box(8, 205, 8);
           p.emissiveMaterial(side < 0 ? '#67e8f9' : '#d9f99d');
           p.translate(-side * 15, -108, 0);
@@ -643,12 +786,15 @@ function startSketch(P5) {
       }
     }
 
-    function drawGantry(z, finish, elapsed) {
+    function drawGantry(progress, finish, elapsed) {
       const width = trackWidth + 110;
+      const frame = trackFrame(progress);
       p.push();
+      p.translate(frame.x, frame.y, frame.z);
+      p.rotateY(frame.yaw);
       p.noStroke();
       p.specularMaterial(68, 79, 99);
-      p.translate(-width / 2, -2, z);
+      p.translate(-width / 2, -117, 0);
       p.box(18, 235, 18);
       p.translate(width, 0, 0);
       p.box(18, 235, 18);
@@ -658,7 +804,8 @@ function startSketch(P5) {
 
       if (finish) {
         p.push();
-        p.translate(0, -130, z + 12);
+        p.translate(frame.x, frame.y - 130, frame.z + 12);
+        p.rotateY(frame.yaw);
         p.texture(raceSign);
         p.noStroke();
         p.plane(Math.min(420, trackWidth * 0.75), 95);
@@ -671,7 +818,9 @@ function startSketch(P5) {
           p.push();
           p.noStroke();
           p.emissiveMaterial(green ? '#22c55e' : active ? '#ef4444' : '#3f1720');
-          p.translate(x, -130, z + 15);
+          p.translate(frame.x, frame.y - 130, frame.z + 15);
+          p.rotateY(frame.yaw);
+          p.translate(x, 0, 0);
           p.sphere(18, 12, 8);
           p.pop();
         });
@@ -681,11 +830,13 @@ function startSketch(P5) {
     function drawMarble(marble) {
       const bounce = Math.abs(Math.sin(marble.progress * Math.PI * 24 + marble.phase)) * 6;
       const spin = marble.progress * Math.PI * 30;
+      const surfaceY = marble.y ?? trackSurfaceY(marble.progress);
 
       p.push();
       p.noStroke();
       p.ambientMaterial(0, 0, 0, 90);
-      p.translate(marble.x + 5, 101, marble.z + 8);
+      p.translate(marble.x + 5, surfaceY + 2, marble.z + 8);
+      p.rotateY(marble.yaw || 0);
       p.rotateX(p.HALF_PI);
       p.ellipse(0, 0, marbleRadius * 1.6, marbleRadius * 0.74);
       p.pop();
@@ -694,13 +845,14 @@ function startSketch(P5) {
       p.noFill();
       p.stroke(marble.color);
       p.strokeWeight(4);
-      p.translate(marble.x, 100, marble.z);
+      p.translate(marble.x, surfaceY, marble.z);
+      p.rotateY(marble.yaw || 0);
       p.rotateX(p.HALF_PI);
       p.circle(0, 0, marbleRadius * 2.2);
       p.pop();
 
       p.push();
-      p.translate(marble.x, 78 - marbleRadius - bounce, marble.z);
+      p.translate(marble.x, surfaceY - marbleRadius - 3 - bounce, marble.z);
       p.rotateX(spin);
       p.rotateZ(spin * 0.38 + marble.phase);
       p.noStroke();
@@ -709,7 +861,12 @@ function startSketch(P5) {
       p.pop();
 
       p.push();
-      p.translate(marble.x, 29 - marbleRadius - bounce, marble.z + marbleRadius + 9);
+      p.translate(
+        marble.x,
+        surfaceY - marbleRadius * 2 - 34 - bounce,
+        marble.z + marbleRadius + 9,
+      );
+      p.rotateY(marble.yaw || 0);
       p.texture(marble.label);
       p.noStroke();
       p.plane(72, 31);
